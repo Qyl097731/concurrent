@@ -22,7 +22,7 @@ public class UnsafeAtomTest1 {
         }, "t1").start ();
         new Thread (() -> {
             updateSafely ( );
-            updateUnsafely();
+//            updateUnsafely();
         }, "t2").start ();
         new Thread (() -> {
             updateSafely ( );
