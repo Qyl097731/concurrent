@@ -316,9 +316,43 @@ ListHelper 展示了 扩展类的时候 错误加锁会产生的问题。
 
 为同步编写文档，可以减少后期维护时候的安全性的威胁。在设计阶段就编写同步策略的文档。何时请求锁、释放锁、锁干嘛了都需要记录。
 
+## 构建块
 
+### 同步容器
 
+同步容器类包括两部分：一个是Vector和Hashtable；另一个是痛惜容器，同步包装类Collections.synchronizedXXXX工厂方法创建。通过封装状态，对公共方法进行同步实现线程安全。
 
+#### 同步容器中出现的问题
+
+复合操作如果存在多线程并发修改的时候就容易出现错误
+
+如Vector中线程A请求获取最后一个元素，而这时候线程V请求删除最后一个元素
+```java
+public static Object getLast(Vector list){
+    int lastIndex = list.size()-1;
+    return list.get(lastIndex);
+}
+
+public static void deleteLast(Vector list){
+    int lastIndex = list.size() - 1;
+    list.remove(lastIndex);
+}
+
+```
+如果线程按照如下方式执行，就可能导致出现ArrayIndexOutOfBoundsException
+<img src="./images/1671290597512.jpg"/>
+
+由于允许客户端加锁的同步，所以可以对同步容器类list上锁，使得两个操作变为原子操作即可。当然这是减少了并发性了。
+
+#### 迭代器和 ConcurrentModificationException
+
+对Collections进行迭代的标准方式是使用Iterator，在并发修改的时候——迭代后被修改，会抛出未检查的ConcurrentModificationException。
+
+ConcurrentModificationException专门用来捕获并发的错误，在迭代期间计数器被修改，hasNext或next就会抛出该异常。
+
+如果对迭代加锁很容易出现死锁、饥饿，极大影响吞吐量。容器复制可能解决问题，但是性能差。
+
+#### 隐藏迭代器
 
 
 
