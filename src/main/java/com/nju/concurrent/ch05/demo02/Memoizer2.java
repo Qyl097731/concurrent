@@ -2,6 +2,7 @@ package com.nju.concurrent.ch05.demo02;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 /**
  * @description 通过ConcurrentHashMap实现缓存
@@ -23,7 +24,7 @@ public class Memoizer2<A,V> implements Computable<A,V> {
      * @throws InterruptedException
      */
     @Override
-    public V compute(A arg) throws InterruptedException {
+    public V compute(A arg) throws InterruptedException, ExecutionException {
         V result = cache.get (arg);
         if (result == null){
             result = c.compute (arg);

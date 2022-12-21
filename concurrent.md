@@ -506,3 +506,117 @@ Memoizer 通过ConcurrentHashMap的putIfAbsent解决了 计算相同值，同时
 - 用锁守护所有可变变量
 - 同一不变约束中所涉及的变量使用相同锁
 - 文档化同步策略
+
+## 任务执行
+
+大多数并发应用程序是围绕任务进行管理的，即抽象的、离散的工作单元。
+
+### 在线程中执行任务
+
+要明确清晰的任务边界，任务是独立的，有利于并发性，甚至能做到并行。在正常负载的时候，服务器应该具有良好的吞吐量和快速的响应性。在负载过高时，应该平缓劣化，而不是直接失败。大多数服务器都选择 单独的客户请求 作为任务边界。
+
+#### 顺序地执行任务
+
+单线程顺序执行任务的执行效率很差，处理和接收请求之间会出现阻塞，并不是并行，更不是并发。如果是因位IO而产生了阻塞，那么会限制大量CPU资源。但是顺序处理具备简单性、安全性。
+
+详情见：SingleThreadWebServer
+
+#### 显示地为任务创建线程
+
+详情见：ThreadPerTaskWebServer
+
+#### 无限制创建线程的缺点
+
+- 线程创建和关闭需要耗费时间
+- 活动线程会消耗系统资源，尤其是内存。如果可运行的线程数多于可用的处理器，线程会空闲，浪费很多内存，给垃圾回收器带来压力。同时线程竞争也会产生性能开销。
+- 稳定性：限制创建的线程的数目，否则很容易导致OOM。
+
+### Executor框架
+详见：TaskExecutionWebServer 、WithinThreadExecutor 、ThreadPerTaskExecutor
+
+#### 执行策略
+
+是资源管理工具，取决于可用的计算资源和对服务质量的需求。最佳策略有助于在部署阶段选择一个与当前硬件最匹配的执行策略。
+
+#### 线程池
+
+在线程池种执行任务线程，重用线程，可以减少线程创建和消亡产生的开销。同时请求到达时，工作者线程已经存在，就不会导致创建线程引起延迟，提高了响应性。
+
+- newFixedThreadPool：定长的线程池，每提交一个任务就创建一个线程，直到达到最大长度。（如果线程由于非预期的Exception而结束，线程池会补充一个新线程）
+- newCachedThreadPool：创建一个可缓存的线程池，如果线程池长度超过了处理的需要，可以灵活地回收空闲线程。需求增加时，灵活地添加新线程，不会对池的长度有任何限制。
+- newSingleThreadExecutor：单线程化的executor，如果该线程异常结束，会有另一个取代它。
+- newScheduledThreadPool：创建一个定长的线程池，支持定时的以及周期性任务执行。
+
+相较于每一个任务都创建一个线程，线程池更好的稳定性，不会因为过高负载而失败。使得服务器能够平缓的劣化
+
+#### Executor的生命周期
+
+JVM会在所有的（非后台的，nondaemon）线程全部终止才退出，因此，如果无法正确关闭Executor，就会阻止JVM结束。
+
+Executor是异步执行任务，所以在任何时间里，之前提交的任务状态都不能立即可见。
+
+生命周期状态：运行（running）、关闭（shutting down）、终止（terminated）；
+- 最初创建后的初始状态是运行状态
+- shutdown方法会启动一个平缓的关闭过程：停止接收新任务，同时等待已经提交的任务完成——包括尚未开始执行的任务。
+- shutdownNow 启动一个强制的关闭过程：尝试取消所有运行中的任务和排在队列中尚未开始的任务
+
+关闭后，再提交任务，会被 拒绝执行处理器（ExecutorService的一种实现ThreadPoolExecutor提供的） 处理，可能只是放弃任务，也可能会抛出未检查的RejectedExecutionException。
+
+再所有的任务完成后，ExecutorService会转入终止状态。可以调用awaitTermination等待ExecutorService进入终止状态，也可以轮询检查isTerminated判断ExecutorService
+是否已经终止。通常shutdown紧随awaitTermination之后，可以产生同步关闭ExecutorService的效果。
+
+#### 延迟的、并具有周期性的任务
+
+Timer工具管理任务的延迟执行以及周期执行，存在一些缺陷，应该考虑使用ScheduledThreadPoolExecutor 作为替代品。
+
+Timer只创建唯一的线程来执行所有的timer任务，如果一个timer任务的执行很耗时，会导致其他定时任务时效准确性出问题。调度线程池解决了这个缺陷，可以多线程来执行延迟、并具有周期性的任务
+Timer的另一个问题在于，Timer线程不捕获异常，所以定时任务抛出的未检查异常会终止timer线程。这种情况下，Timer不会再重新恢复线程执行，它会任务Timer被取消了，此时所有的定时任务永远不会执行了。（线程泄露）
+
+详情见:OutOfTime
+
+可以使用DelayQueue（管理包含Delayed对象的容器）来构建自己的调度服务，每个Delayed对象只有过期后，DelayQueue才能take获取元素，从DelayQueue中返回对象将根据Delayed对象的延迟时间进行排序。
+
+> Timer对调度的支持是基于绝对时间，而不是相对时间，任务对系统时钟的改变是敏感的；ScheduledThreadPoolExecutor只支持相对时间。
+
+### 寻找可强化的并行性
+
+HTML只有包含标签文本，包括预定义了的尺寸和URL图片
+
+#### 顺序执行的页面渲染器
+
+先显示所有的非图片文本元素，所有图像都用占位符代替，之后回到程序开始位置并下载图像到占位符位置。
+
+下载的时候CPU处于空闲，只用到IO操作，所以效率很差。
+
+#### 可携带结果的任务：Callable和Future
+
+很多任务都会引起严重的计算延迟——执行数据库查询、从网络上获取资源，进行复杂计算，这些Callable是更加的抽象。可以通过call等待返回值，并未可能抛出的异常做准备。
+
+Executor包含了一些方法，可以把其他零星的任务封装成Callable，比如Runnable。
+
+Runnable、Callable都是有明确的开始点，且最终会结束。而Executor执行的任务的生命周期：创建、提交、开始、完成。执行可能会花费很长时间，在Executor框架中，可以取消还未开始的任务，中断开始的任务。
+
+Future描述了任务的生命周期。如果在get的时候抛出ExecutionException，可以用getCause获得被封装的原始异常。
+
+通过Callable来下载所有图像，提交ExecutorService，之后返回Future，在最后进行future.get，极大了利用IO、以及CPU资源。
+
+#### 并行运行异类任务的局限性
+
+因为异类任务执行的时间有很大不同，如A 1000s 而 B 1s ，那么并行A，B最后所花费时间还是取决于A，并不能有很大的提升。
+
+> 大量相互独立且同类的任务进行并发处理，会将程序的任务量分配到不同的任务中，这样才能获得真正的性能提升。
+
+#### CompletionService ： 当 Executor遇见 BlockingQueue
+
+如果向Executor提交了批处理任务，最后对每个任务调用get来检验Future是否完成，固然可以，但相当乏味。
+
+CompletionService整合了Executor和BlockingQueue，将任务提交给它执行，之后使用take和poll方法来获取结果，像一个打包的Future。
+
+首先把任务封装为一个QueuingFuture，在计算完成时调用FutureTask的done方法，并加入到BlockingQueue之中。
+
+每需要下载一个图像，就创建一个独立的任务，并在线程池中执行他们，将顺序下载的过程转换为并行的，能减少下载所有图像的时间。从CompletionService获取结果，只要一个图像下载完成，就立刻呈现，提供了一个更加动态、高响应性的用户界面、
+
+InvokeAll 可以处理任务集合，同时限时版的InvokeAll都会有返回值，超过时限后尚未完成的任务会被取消，每个任务要么正常完成，要么被取消，可以通过get或者isCancelled来判断。
+
+
+

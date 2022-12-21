@@ -4,6 +4,7 @@ import net.jcip.annotations.GuardedBy;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * @description 通过HashMap和同步进行初始化和缓存
@@ -20,7 +21,7 @@ public class Memoizer1 <A,V> implements Computable<A,V>{
     }
 
     @Override
-    public synchronized V compute(A arg) throws InterruptedException {
+    public synchronized V compute(A arg) throws InterruptedException, ExecutionException {
         V result = cache.get (arg);
         if (result == null){
             result = c.compute (arg);
