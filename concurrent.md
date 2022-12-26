@@ -806,7 +806,50 @@ Java没有明显优势的机制来取消活动或者中介线程，提供了写�
 - 抛弃（discard）会默认放弃这任务。
 - 遗弃最旧的，丢弃本应该执行的任务，还会尝试去重新提交新任务。
 
-调用者运行策略，不会丢弃任务、不会抛出异常。把一些任务退回到调用者，减缓任务流，不会在线程池中执行最新的策略
+调用者运行策略，不会丢弃任务、不会抛出异常。把一些任务退回到调用者，减缓任务流，不会在线程池中执行最新的策略，但是会在一个调用了execute 的线程中执行。通过使用优先队列和调用者运行策略，可以在服务器过载的时候，负荷逐渐外移：从池线程到工作队列到应用程序再到TCP
+层（会判断连接请求队列是否已满，如果已满就丢弃请求任务），最后转嫁到用户头上——使得服务器在高负载下可以平缓地劣化。
+
+```java
+    private static final int N_THREAD = Runtime.getRuntime ( ).availableProcessors ( ) * 2 + 1; 
+    private static final int CAPACITY = 100000;
+    ExecutorService executor = new ThreadPoolExecutor (N_THREAD,N_THREAD,0L,TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<> (CAPACITY),new ThreadPoolExecutor.CallerRunsPolicy ());
+```
+
+工作队列满之后，没有预置的包和策略来阻塞execute。可以使用semaphore来实现这个效果，semaphore可以限制任务注入率。
+
+详情见 BoundedExecutor
+
+#### 线程工厂
+
+默认线程工厂创建一个新的、非守护线程，没有特殊的配置。详细指明一个线程工厂，允许你定制线程的配置信息。ThreadFactory的newThread进行线程创建。
+
+详情见MyThreadFactory，通过构造函数传入线程池名字，可以在线程转储和错误信息中分辨出线程来自哪个池。以定制的线程工厂，可以给线程提供名字、实现自定义的UncaughtExceptionHandler，以此向Logger
+写入信息，还能维护统计信息，记录已经创建和销毁的线程数，最后在线程终结时，也可以把调试消息写入日志。
+
+<b>如果希望为某些 代码基 授予安全策略</b>，可以使用Executors中的 privilegedThreadFactory 工厂来构建你的线程工厂。这样子创建出来的线程，与创建privilegedThreadFactory
+的线程拥有相同的权限、AccessControlContext和contextClassLoader。如果不用privilegedThreadFactory，则线程池创建的线程继承的权限，是客户调用execute或submit
+的时候，新线程所需要的权限。
+
+代码基 详情见 MyAppThread
+
+### 扩展 ThreadPoolExecutor
+
+ThreadPoolExecutor提供了 beforeExecute、afterExecute和 terminated 可供重写的方法进行扩展。
+
+执行任务的线程会调用钩子函数beforeExecute、afterExecute，可以用他们添加日志、时序、监视器或统计信息收集的功能。无论任务是正常从run中返回还是抛出异常，afterExecute
+都会被调用（除非抛出的是Error或者在beforeExecute的时候抛出了RuntimeException）。
+
+terminated在线程池完成关闭后调用。
+
+详情见 TimingThreadPool
+
+### 并行递归算法
+
+详情见ch08.demo01
+
+
+
 
 ## 附录
 
