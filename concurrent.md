@@ -383,7 +383,7 @@ ConcurrentSkipListMap、ConcurrentSkipListSet作为同步的SortedMap和SortedSe
 
 #### ConcurrentHashMap
 
-使用更加细化的锁机制：分离锁，实现更深层次的共享访问。任意数量的读线程可以并发访问，读者和写着也可以并发访问，并且有限数量的写线程还可以并发修改。提供的是弱一致性的迭代器，不会抛出ConcurrentModificationException。允许并发修改，不会感应到迭代器创建之后对容器的修改。
+使用更加细化的锁机制：分离锁，实现更深层次的共享访问。任意数量的读线程可以并发访问，读者和写者也可以并发访问，并且有限数量的写线程还可以并发修改。提供的是弱一致性的迭代器，不会抛出ConcurrentModificationException。允许并发修改，不会感应到迭代器创建之后对容器的修改。
 
 #### CopyOnWriteArrayList
 
@@ -1286,6 +1286,68 @@ AOP并发能力有限，但是可以通过断言不变约束或者遵从同步�
 
 内置的JMX代理也为监控线程行为提供了有限的特性。ThreadInfo就包含了线程当前状态，且线程阻塞的时候，还包含了阻塞的锁或者条件队列的信息。
 
+## 显式锁
+
+### Lock 和 ReentrantLock
+
+Lock 提供了 无条件的、可轮询的、定时的、可中断的锁获取操作，所有的加锁和解锁的方法都是显式的。
+
+ReentrantLock实现了Lock接口，提供了与synchronized相同的互斥和内存可见性保证。获得和释放ReentrantLock和会的和释放synchronized有着相同的内存语义。
+
+ReentrantLock支持所有Lock定义的获取锁的模式，比synchronized具有更多灵活性。
+
+Lock 必须要在 finally中释放，如果在try之外抛出了异常，可能永远不会被释放。ReentrantLock不能拿完全替代synchronized，就是因为当程序的控制权离开了守护的块时，不会自动清除锁。
+
+#### 可轮询的和可定时的锁请求
+
+tryLock 与 无条件的锁获取相比，具有更完善的错误恢复机制。内部锁中，死锁是致命的——只能重启。
+
+如果不能获得所有的锁，tryLock能够重新拿到控制权，会释放已经获得的这些锁，然后再重新尝试。能够让活动出现阻塞的时候，超过预定时间就超时，提前返回。
+
+#### 可中断的锁获取操作
+
+```java
+    public boolean sendOnSharedLine(String msg) throws InterruptedException {
+        Lock lock = new ReentrantLock ();
+        lock.lockInterruptibly ();
+        try {
+            return cancellableSendOnSharedLine (msg);
+        }finally {
+            lock.unlock ();
+        }
+    }
+```
+可中断的锁获取方式，需要在调用方法处多一个try来捕获中断。tryLock同样响应中断，可以获取定时和中断的锁时使用tryLock。
+
+#### 非块结构的锁
+
+内部锁，在获取和释放这样成对的行为是块结构的——总是在其获得相同的基本程序块中释放锁，而不必考虑控制权如何退出阻塞块的。
+
+在链表中，通过为每个链表节点应用相似的而原则来减小锁的粒度，从而允许不同线程独立操作链表的不同部分。给定节点的锁守护链接的指针，数据就存储在该节点中，如果要遍历或者修改链表就必须获得这个锁，持有他直到获得下一个节点的锁，这项技术成为连锁式加锁或者锁联接。
+
+### 公平性
+
+ReentrantLock 提供了：非公平锁（默认）和公平锁。（Semaphore同样提供了公平和非公平的获取顺序）。如果锁的状态变为可用，线程的请求可以在等待线程的队列中向前条约，获得该锁。
+
+非公平锁相较于公平锁的优势在于：挂起的线程重新开始，到真正开始运行会有严重的延迟。假设A持有一个锁，B请求获得该锁，那么B就挂起。A释放后，B重新开始。与此同时，如果C请求该锁，C如果直接使用该锁，或许能在C能在B
+被唤醒前就释放锁了，所以性能获得到更好的提升。
+
+### 在synchronized和ReentrantLock之间进行选择
+
+ReentrantLock需要unlock，在内部锁不能满足需求时，才需要使用ReentrantLock，如需要使用：可定时的、可轮询的与可中断的锁获取操作，公平队列、或者非块结构的锁。
+
+ReentrantLock非块结构的特性意味获取锁不能依赖于特定的栈结构，这一点与内部锁不同。
+
+### 读写锁
+
+ReentrantLock 实现了标准的互斥锁，一次最多一个线程能够持有ReentrantLock。但是过分限制，反而影响了并发性。
+
+详情见 ReadWriteMap
+
+读写锁性能：
+<img src="./images/1672736533423.jpg" />
+
+读写锁允许多个读者并发访问被守护对象，更具有伸缩性。
 
 ## 附录
 
