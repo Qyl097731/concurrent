@@ -1349,6 +1349,110 @@ ReentrantLock 实现了标准的互斥锁，一次最多一个线程能够持有
 
 读写锁允许多个读者并发访问被守护对象，更具有伸缩性。
 
+## 构建自定义的同步工具
+
+类库中包含了大量依赖于状态的类——基于状态的先验条件——FutureTask、Semaphore、BlockingQueue，例如不能从空队列中取元素。
+
+一些底层机制可提供实现自定义的状态依赖类：内部条件队列、显式的Condition对象和AbstractQueuedSynchronizer框架来构建自己的synchronizer.
+
+### 管理状态依赖性
+
+#### 将先验条件的失败传递给调用者
+
+详情见 GrumpyBoundedBuffer 需要调用者显式的处理异常
+
+#### 利用 轮询加休眠 实现拙劣的阻塞
+
+详情见 SleepyBoundedBuffer
+
+#### 让条件队列来解决一切
+
+条件队列能够保证条件为真时，线程能够及时苏醒过来。
+
+<img src="./images/1672739266933.jpg" />
+
+条件对类可以让一组线程——成为等待集——以某种方式等待相关条件变成真。条件队列的元素时等待相关条件的线程。
+
+Object.wait会自动释放锁，并请求OS挂起当前线程，让其他线程获得该锁进而修改对象的状态。wait就好像：我要去休息了，关注的事情发生了就叫醒我。
+
+详情见 BoundedBuffer
+
+#### 条件谓词
+
+条件谓词是先验条件的第一站，在一个操作和状态之间建立起依赖关系。就是先检查后操作的检查操作，需要获得状态的锁。
+
+#### 过早地唤醒
+
+单独的内部条件队列可以与多个条件谓词共同使用。出现notifyAll的时候，要检查具体是哪个条件成真了。可能在其他线程notify\notifyAll之后可能其他线程请求到了锁，所以无法唤醒；更有甚者都不是请求的锁发生了notify
+或者notifyAll，可能是另一个条件谓词变成了真。基于这些原因，wait唤醒后需要在循环内部调用wait，
+
+> 将条件谓词和与之相关联的条件队列，以及再条件队列中等待的操作都写入文档。
+
+```java
+    // 状态依赖方法的规范式
+    void stateDependentMethod(){
+        // 条件谓词必须守护
+        synchronized (lock){
+            while (!conditionPredicate()){
+                lock.wait();
+            }
+            // do something
+        }
+    }
+```
+
+#### 丢失的信号 
+
+可能导致别的线程通知后，当前线程未能获得该通知信号。如可见性问题、notify通知一个随机线程，导致其他等待线程丢失信号。
+
+#### 通知
+
+notifyAll 在多数情况下优于 notify；只有等待者都相同，且只有一个条件谓词，且执行相同逻辑才能用notify取代notifyAll
+
+#### 阀门类
+
+阀门不可重新关闭的问题，可以通过 ThreadGate 示例进行解决
+
+#### 子类的安全问题
+
+一个依赖于状态的类，要么完全将他的等待和通知协议暴露给子类，要么完全阻止子类参与其中。
+
+#### 封装条件队列
+
+在类层次结构之外，不能访问，可以避免调用者的错误使用。
+
+#### 入口协议与出口协议
+
+- 入口协议：操作的条件谓词
+- 出口协议：检查任何被操作改变的状态变量，是否引起了其他条件谓词的改变，如果是就通知相关条件队列。
+
+AbstractQueuedSynchronizer采用了出口协议大部分的状态以来类都构建于他之上。没有哦让synchronizer类自己于通知，而是要求同步方法返回一个值来说明他的动作是否可能已经阻塞一个或者多个线程。
+
+### 显式的Condition对象
+
+显式锁：Lock是广义的内部锁，Condition是广义的内部条件队列
+
+内部条件对类会导致，多个线程可能为了不同的条件谓词在同一个条件队列中等待。显式的Lock和Condition实现类提供了比内部锁和条件队列更灵活的选择。
+
+一个Condition 和 一个单独的Lock相关联，将像条件队列和单独的内部锁相关联（每次wait的时候，都是获取了锁再进行检测某个条件）
+
+Condition ：可以让每个锁等待多个等待集、可中断、不可中断的条件等待、基于时限的等待以及公平\非公平队列之间的选择。
+
+> wait 、 notify 、 notifyAll 再 Condition对象中的对等体是await、signal和signalAll。
+
+详情见 ConditionBoundedBuffer,相较于BoundedBuffer 具有更好的可读性，使用多个条件队列，且使用了更有效的signal,而不是signalAll，减少了上下文切换，每次缓存操作都触发对锁的请求。
+
+ReentrantLock在使用await 和 signal时候，必须持有Lock对象
+
+### 剖析Synchronizer
+
+CountDownLatch、ReentrantReadWriteLock、SynchronousQueue、FutureTask、ReentrantLock 和 Semaphore 都是 基于 AQS
+(AbstractQueuedSynchronizer)实现的。
+
+通过Lock实现Semaphore 详情见 SemaphoreOnLock
+
+AQS 解决了实现一个Synchronizer的大量细节，比如等待线程的FIFO队列。不仅极大减少了实现过程中的精力，降低了上下文切换的开销，提高了吞吐量。更好的伸缩性。
+
 ## 附录
 
 ### 锁类型
