@@ -490,7 +490,8 @@ Memoizer 通过ConcurrentHashMap的putIfAbsent解决了 计算相同值，同时
 
 ### 在线程中执行任务
 
-要明确清晰的任务边界，任务是独立的，有利于并发性，甚至能做到并行。在正常负载的时候，服务器应该具有良好的吞吐量和快速的响应性。在负载过高时，应该平缓劣化，而不是直接失败。大多数服务器都选择 单独的客户请求 作为任务边界。
+要明确清晰的任务边界，任务是独立的，有利于并发性，甚至能做到并行。在正常负载的时候，服务器应该具有良好的吞吐量和快速的响应性。在负载过高时，应该平缓劣化，而不是直接失败。大多数服务器都选择
+单独的客户请求 作为任务边界。
 
 #### 顺序地执行任务
 
@@ -509,6 +510,7 @@ Memoizer 通过ConcurrentHashMap的putIfAbsent解决了 计算相同值，同时
 - 稳定性：限制创建的线程的数目，否则很容易导致OOM。
 
 ### Executor框架
+
 详见：TaskExecutionWebServer 、WithinThreadExecutor 、ThreadPerTaskExecutor
 
 #### 执行策略
@@ -533,11 +535,13 @@ JVM会在所有的（非后台的，nondaemon）线程全部终止才退出，�
 Executor是异步执行任务，所以在任何时间里，之前提交的任务状态都不能立即可见。
 
 生命周期状态：运行（running）、关闭（shutting down）、终止（terminated）；
+
 - 最初创建后的初始状态是运行状态
 - shutdown方法会启动一个平缓的关闭过程：停止接收新任务，同时等待已经提交的任务完成——包括尚未开始执行的任务。
 - shutdownNow 启动一个强制的关闭过程：尝试取消所有运行中的任务和排在队列中尚未开始的任务
 
-关闭后，再提交任务，会被 拒绝执行处理器（ExecutorService的一种实现ThreadPoolExecutor提供的） 处理，可能只是放弃任务，也可能会抛出未检查的RejectedExecutionException。
+关闭后，再提交任务，会被 拒绝执行处理器（ExecutorService的一种实现ThreadPoolExecutor提供的）
+处理，可能只是放弃任务，也可能会抛出未检查的RejectedExecutionException。
 
 再所有的任务完成后，ExecutorService会转入终止状态。可以调用awaitTermination等待ExecutorService进入终止状态，也可以轮询检查isTerminated判断ExecutorService
 是否已经终止。通常shutdown紧随awaitTermination之后，可以产生同步关闭ExecutorService的效果。
@@ -607,6 +611,7 @@ InvokeAll 可以处理任务集合，同时限时版的InvokeAll都会有返回�
 详情见ch07.demo01
 
 #### 中断
+
 每个线程都有一个boolean类型的中断状态。
 
 Thread中的interrupt方法终端目标线程，isInterrupted返回目标线程的中断状态，静态的interrupted是消除中断状态，并返回之前的中断状态值。
@@ -696,7 +701,7 @@ WebCrawler 展现了 对TrackingExecutor的应用，crawler通常无穷尽的，
 
 线程的API提供了UncaughtExceptionHandler工具，能够检测到线程因未不过的异常引起的线程死亡。防止线程泄露（不能使用）。
 
-> Java5.0及之后的JDK中，可以通过Thread.setUncaughtExceptionHandler为每个线程设置一个 
+> Java5.0及之后的JDK中，可以通过Thread.setUncaughtExceptionHandler为每个线程设置一个
 > UncaughtExceptionHandler。也可以使用默认的UncaughtExceptionHandler。只有其中一个处理器能够被调用——JVM首先寻找每个线程的处理器，然后再查找ThreadGroup
 > 的。ThreadGroup默认的处理器实现会委托给他们的父线程组，并且依次向上传递委托直到能够处理。高层线程组处理器委托给默认的系统处理器。
 
@@ -704,9 +709,11 @@ WebCrawler 展现了 对TrackingExecutor的应用，crawler通常无穷尽的，
 
 > 长时间运行的应用程序中，所有的线程都要给未捕获异常设置一个处理器，这个处理器至少要将异常信息记录到日志中。
 
-为了给线程池设置UncaughtExceptionHandler，需要向ThreadPoolExecutor的构造函数提供一个ThreadFactory。标准线程池允许未捕获的任务异常去结束线程，但是使用try-finally 块来接收通知的话，如果使用try-finally来接收通知的话，当线程被终结，能够有新的线程取代它。如果没有捕获异常的处理器或者其他的失败通知，任务无声无息地失败，这会导致混乱。
+为了给线程池设置UncaughtExceptionHandler，需要向ThreadPoolExecutor的构造函数提供一个ThreadFactory。标准线程池允许未捕获的任务异常去结束线程，但是使用try-finally
+块来接收通知的话，如果使用try-finally来接收通知的话，当线程被终结，能够有新的线程取代它。如果没有捕获异常的处理器或者其他的失败通知，任务无声无息地失败，这会导致混乱。
 
-<b>只有通过execute提交地任务才能将他抛出的异常交给未捕获异常的处理器；而submit抛出的异常，无论什么异常，都是作为返回状态的一部分，最后通过get重抛出。</b>
+<b>
+只有通过execute提交地任务才能将他抛出的异常交给未捕获异常的处理器；而submit抛出的异常，无论什么异常，都是作为返回状态的一部分，最后通过get重抛出。</b>
 
 ### JVM 关闭
 
@@ -743,7 +750,8 @@ JVM启动的时候创建所有的线程，除了主线程以外，其他都是�
 
 finalize被调用，保证持久化的资源可以被释放。
 
-finalizer可以运行在一个JVM管理的线程中，任何finalizer访问的状态都会被多个线程访问，所以必须被同步。大多数情况下，使用finally和显示close方法的结合 来管理资源，比finalizer作用更好。
+finalizer可以运行在一个JVM管理的线程中，任何finalizer访问的状态都会被多个线程访问，所以必须被同步。大多数情况下，使用finally和显示close方法的结合
+来管理资源，比finalizer作用更好。
 
 > 避免使用finalizer
 
@@ -769,7 +777,8 @@ Java没有明显优势的机制来取消活动或者中介线程，提供了写�
 ### 定制线程池大小
 
 - 计算密集型任务：N个CPU通常使用N+1个线程的线程池来获得最优的利用率。这样当意外发生的时候，刚好有一个额外的线程，确保这个情况下CPU周期不会中断
-- 包含了I/O和其他阻塞操作的任务，不是所有线程都会在所有的时间被调度，因此需要一个更大的池。通过一些计算来进行大概的设置：_**线程的数量N = CPU数量*CPU利用率*（1+等待时间/响应时间）**_
+- 包含了I/O和其他阻塞操作的任务，不是所有线程都会在所有的时间被调度，因此需要一个更大的池。通过一些计算来进行大概的设置：_**
+  线程的数量N = CPU数量*CPU利用率*（1+等待时间/响应时间）**_
 
 其他的资源池的大小的计算，大多数都是通过 所有线程需要的资源总量/线程数 计算而来。
 
@@ -785,14 +794,15 @@ Java没有明显优势的机制来取消活动或者中介线程，提供了写�
 如果出现了过多的请求，线程池会把这些请求放在一个Executor管理的Runnable队列中等待，而不是作为竞争CPU资源的线程队列，但是如果新的请求过快过多，仍可能耗尽资源。
 
 线程池使用的任务队列：
+
 - 无限队列
-  - 无限的LinkedBlockingQueue，资源耗尽问题
+    - 无限的LinkedBlockingQueue，资源耗尽问题
 - 有限队列
-  - ArrayBlockingQueue、或者有限的LinkedBlockingQueue以及PriorityBlockingQueue，需要饱和策略
-  - 一个大队列+一个小线程池，可以控制对内存和CPU的使用，还可以减少上下文切换，但是要接收潜在吞吐量约束的开销。
+    - ArrayBlockingQueue、或者有限的LinkedBlockingQueue以及PriorityBlockingQueue，需要饱和策略
+    - 一个大队列+一个小线程池，可以控制对内存和CPU的使用，还可以减少上下文切换，但是要接收潜在吞吐量约束的开销。
 - 同步移交
-  - 庞大或者无限的池，可以使用 SynchronousQueue，直接把任务生产者移交到工作者线程。SynchronousQueue 
-    是一种移交线程的机制，为了把元素放入SynchronousQueue，必须有一个线程正在等待接收移交的任务。如果没有这样的线程，当前池大小小于最大值，就会创建新线程，否则根据饱和策略，任务被拒绝。
+    - 庞大或者无限的池，可以使用 SynchronousQueue，直接把任务生产者移交到工作者线程。SynchronousQueue
+      是一种移交线程的机制，为了把元素放入SynchronousQueue，必须有一个线程正在等待接收移交的任务。如果没有这样的线程，当前池大小小于最大值，就会创建新线程，否则根据饱和策略，任务被拒绝。
 
 > newCachedThreadPool 工厂提供了比定长的线程池更好的队列等候性能，它是Executor的一个很好的默认选择。
 
@@ -802,18 +812,20 @@ Java没有明显优势的机制来取消活动或者中介线程，提供了写�
 
 当有些队列满之后，饱和策略开始起作用。ThreadPoolExecutor的饱和策略可以通过setRejectedExecutionHandler进行修改。几种饱和策略：AbortPolicy、CallerRunsPolicy
 、DiscardPolicy和DiscardOldestPolicy。
+
 - 默认的”中止（abort）“策略会引起execute抛出未检查的RejectedExecutionException：调用者可以捕获该异常，实现自定义的业务。
 - 抛弃（discard）会默认放弃这任务。
 - 遗弃最旧的，丢弃本应该执行的任务，还会尝试去重新提交新任务。
 
-调用者运行策略，不会丢弃任务、不会抛出异常。把一些任务退回到调用者，减缓任务流，不会在线程池中执行最新的策略，但是会在一个调用了execute 的线程中执行。通过使用优先队列和调用者运行策略，可以在服务器过载的时候，负荷逐渐外移：从池线程到工作队列到应用程序再到TCP
+调用者运行策略，不会丢弃任务、不会抛出异常。把一些任务退回到调用者，减缓任务流，不会在线程池中执行最新的策略，但是会在一个调用了execute
+的线程中执行。通过使用优先队列和调用者运行策略，可以在服务器过载的时候，负荷逐渐外移：从池线程到工作队列到应用程序再到TCP
 层（会判断连接请求队列是否已满，如果已满就丢弃请求任务），最后转嫁到用户头上——使得服务器在高负载下可以平缓地劣化。
 
 ```java
-    private static final int N_THREAD = Runtime.getRuntime ( ).availableProcessors ( ) * 2 + 1; 
-    private static final int CAPACITY = 100000;
-    ExecutorService executor = new ThreadPoolExecutor (N_THREAD,N_THREAD,0L,TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<> (CAPACITY),new ThreadPoolExecutor.CallerRunsPolicy ());
+    private static final int N_THREAD=Runtime.getRuntime().availableProcessors()*2+1;
+private static final int CAPACITY=100000;
+        ExecutorService executor=new ThreadPoolExecutor(N_THREAD,N_THREAD,0L,TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue<> (CAPACITY),new ThreadPoolExecutor.CallerRunsPolicy());
 ```
 
 工作队列满之后，没有预置的包和策略来阻塞execute。可以使用semaphore来实现这个效果，semaphore可以限制任务注入率。
@@ -827,7 +839,8 @@ Java没有明显优势的机制来取消活动或者中介线程，提供了写�
 详情见MyThreadFactory，通过构造函数传入线程池名字，可以在线程转储和错误信息中分辨出线程来自哪个池。以定制的线程工厂，可以给线程提供名字、实现自定义的UncaughtExceptionHandler，以此向Logger
 写入信息，还能维护统计信息，记录已经创建和销毁的线程数，最后在线程终结时，也可以把调试消息写入日志。
 
-<b>如果希望为某些 代码基 授予安全策略</b>，可以使用Executors中的 privilegedThreadFactory 工厂来构建你的线程工厂。这样子创建出来的线程，与创建privilegedThreadFactory
+<b>如果希望为某些 代码基 授予安全策略</b>，可以使用Executors中的 privilegedThreadFactory
+工厂来构建你的线程工厂。这样子创建出来的线程，与创建privilegedThreadFactory
 的线程拥有相同的权限、AccessControlContext和contextClassLoader。如果不用privilegedThreadFactory，则线程池创建的线程继承的权限，是客户调用execute或submit
 的时候，新线程所需要的权限。
 
@@ -866,7 +879,8 @@ terminated在线程池完成关闭后调用。
 
 #### Swing中的线程限制
 
-所有组件如JButton 和 JTable和数据模型（TableModel和TreeModel）都被限制于事件线程中，所以任何访问他们的代码都必须在事件线程中运行。这样可以让运行于事件线程的任务，在访问表现对象的时候不必担心同步问题。
+所有组件如JButton 和
+JTable和数据模型（TableModel和TreeModel）都被限制于事件线程中，所以任何访问他们的代码都必须在事件线程中运行。这样可以让运行于事件线程的任务，在访问表现对象的时候不必担心同步问题。
 
 ### 短期的GUI任务
 
@@ -949,7 +963,8 @@ FutureTask通过 done 可以方便通知任务完成，后台Callable完成后�
 
 #### 尝试定时的锁
 
-使用显示的Lock的定时tryLock特性，代替使用内部锁机制。使用可轮询检查的tryLock基本避免了死锁的可能性 。 定时锁来获得多重锁能够有效应对死锁。如果超时，可以释放这个锁，等待一段时间后再次进行尝试来恢复程序。
+使用显示的Lock的定时tryLock特性，代替使用内部锁机制。使用可轮询检查的tryLock基本避免了死锁的可能性 。
+定时锁来获得多重锁能够有效应对死锁。如果超时，可以释放这个锁，等待一段时间后再次进行尝试来恢复程序。
 
 #### 通过线程转储分析死锁
 
@@ -991,6 +1006,7 @@ Java应用程序中，大多数线程都具有相同优先级，线程优先级�
 很多性能的优化可会损失可读性或可维护性，可能会违背好的面向对象的设计原则。比如打破封装。通常越快的算法越复杂。
 
 进行性能优化方案的选择的时候，需要考虑：
+
 - 快指的什么
 - 什么样条件下才能真正得快？轻负载还是重负载？大数据集还是小数据集？是否支持你的测量标准的答案
 - 这些条件发生的频率？是否支持测量标准的答案
@@ -1091,7 +1107,7 @@ ServerStatus2 展示了通过分拆 把一把锁分拆为两个，对性能和�
 
 把一个竞争激烈的锁分拆成两个，很可能形成两个竞争激烈的锁。尽管这个可以通过两个线程并发执行，取代一个线程，但是仍然不能大幅度地提高多个处理器在同一系统中并发性地前景。
 
-分拆锁进一步扩展，分成可大可小加锁块地集合，并且他们归属于相互独立地对象，这样的情况就是分离锁。例如，ConcurrentHashMap的实现使用一个包含16个锁的Array，每个锁都守护HashBucket的1/16;Bucket 
+分拆锁进一步扩展，分成可大可小加锁块地集合，并且他们归属于相互独立地对象，这样的情况就是分离锁。例如，ConcurrentHashMap的实现使用一个包含16个锁的Array，每个锁都守护HashBucket的1/16;Bucket
 N 由第 N mod 16 个锁来守护。这将把锁的请求减少到原来的1/16。这项技术使得ConcurrentHashMap 能够支持16个并发的Writer。
 
 分离锁的负面作用是：对容器加锁，进行独占访问更困难了，当ConcurrentHashMap的值需要被扩展、重拍，放入一个更大的Bucket时，就需要对整个容器加锁。
@@ -1119,10 +1135,10 @@ ConcurrentHashMap 通过每个条目都维护一个独立的计数，而不是�
 - 不充足的负载
 - IO限制
 
-  可以通过iostat或者perfmon判定应用程序是否受限于磁盘或者通过检测他的网络通信量判断是否由带宽限制。  
+  可以通过iostat或者perfmon判定应用程序是否受限于磁盘或者通过检测他的网络通信量判断是否由带宽限制。
 
 - 外部限制
-  
+
   通过profiler工具来判定是不是外部服务等待时间过长，而不是自己的代码问题
 
 - 锁竞争
@@ -1162,6 +1178,7 @@ ConcurrentHashMap 和 ConcurrentSkipListMap 能够很好应对数量很大的线
 添加了测试代码可能你会引入时序或者同步带来的影响，会屏蔽掉bug。这些bug成为heisenbugs。
 
 与活跃度测试相关的是性能测试，包括：
+
 - 吞吐量
 - 响应性
 - 可伸缩性
@@ -1216,6 +1233,7 @@ LinkedBlockingQueue的伸缩性好于ArrayBlockingQueue
 垃圾回收的时序不可预知，所以可能在某个迭代的时候发生了GC，导致运行时间大不相同。
 
 避免垃圾回收带来的误差
+
 - JVM参数 -verbose:gc 避免gc
 - 在测试期间，确保垃圾回收器执行多次，这一种更复合实际情况
 
@@ -1263,6 +1281,7 @@ System.out.print 会缓存输出，并不会真正执行I/O ,直到调用了prin
 #### 静态分析工具
 
 FindBugs 包含了很多并发相关的错误模式的侦测器：
+
 - 不一致同步性:使用对象的内部锁保护所有变量，频繁访问一个域的线程并未总是持有this锁，就按时同步策略没有被一贯地坚持
 - 调用Thread.run，应该调用Thread.start
 - 未释放的锁：不同于内部锁，显式锁在控制退出了请求范围时不会自动释放。标准的技巧是从finally块中释放锁；否则，遇到Exception事件后，锁可以保留在未释放的状态。
@@ -1307,16 +1326,17 @@ tryLock 与 无条件的锁获取相比，具有更完善的错误恢复机制�
 #### 可中断的锁获取操作
 
 ```java
-    public boolean sendOnSharedLine(String msg) throws InterruptedException {
-        Lock lock = new ReentrantLock ();
-        lock.lockInterruptibly ();
-        try {
-            return cancellableSendOnSharedLine (msg);
-        }finally {
-            lock.unlock ();
+    public boolean sendOnSharedLine(String msg)throws InterruptedException{
+        Lock lock=new ReentrantLock();
+        lock.lockInterruptibly();
+        try{
+        return cancellableSendOnSharedLine(msg);
+        }finally{
+        lock.unlock();
         }
-    }
+        }
 ```
+
 可中断的锁获取方式，需要在调用方法处多一个try来捕获中断。tryLock同样响应中断，可以获取定时和中断的锁时使用tryLock。
 
 #### 非块结构的锁
@@ -1391,17 +1411,17 @@ Object.wait会自动释放锁，并请求OS挂起当前线程，让其他线程�
 ```java
     // 状态依赖方法的规范式
     void stateDependentMethod(){
-        // 条件谓词必须守护
-        synchronized (lock){
-            while (!conditionPredicate()){
-                lock.wait();
-            }
-            // do something
+// 条件谓词必须守护
+synchronized (lock){
+        while(!conditionPredicate()){
+        lock.wait();
         }
-    }
+        // do something
+        }
+        }
 ```
 
-#### 丢失的信号 
+#### 丢失的信号
 
 可能导致别的线程通知后，当前线程未能获得该通知信号。如可见性问题、notify通知一个随机线程，导致其他等待线程丢失信号。
 
@@ -1453,6 +1473,58 @@ CountDownLatch、ReentrantReadWriteLock、SynchronousQueue、FutureTask、Reentr
 
 AQS 解决了实现一个Synchronizer的大量细节，比如等待线程的FIFO队列。不仅极大减少了实现过程中的精力，降低了上下文切换的开销，提高了吞吐量。更好的伸缩性。
 
+### AbstractQueuedSynchronizer
+
+基于AQS的Synchronizer所执行的基本操作，都是不同形式的获取和释放。如CountDownLatch的请求以为着等待，直到闭锁到达他的终止态。FutureTask意味着等待，直到任务已经完成。
+
+状态依赖性：AQS负责同步类中的状态的管理，可以通过getState、setState、和compareAndSetState进行操作。如ReentrantLock用它来表现拥有他的线程已经请求了多少次锁，Semaphore
+用它来表现剩余的许可数，FutureTask用来表现任务的状态（尚未开始、运行、完成或者取消。）
+
+独占的Synchronizer 应该实现tryAcquire、tryRelease、isHeldExclusively。支持共享的Synchronizer应该实现tryAcquireShared、tryReleaseShared
+。这些try操作决定是否真正执行该操作。
+
+tryAcquireShared返回一个负值，说明获取操作失败；如果返回0说明Synchronizer被独占获取；返回正值说明Synchronizer被非独占获取。
+
+#### 一个简单的闭锁
+
+使用AQS实现二元闭锁，详情见 OneShotLatch 。await方法中调用AQS的acquireSharedInterruptibly，后者调用OneShotLatch的tryAcquireShared
+，如果成功线程久允许通过，否则久放入一个等待队列。signal调用releaseShared，导致tryReleaseShared被调用。tryReleaseShared会把闭锁打开，返回值表明Synchronizer
+被释放。这让等待队列中的线程去重新请求Synchronizer。
+
+concurrent中的Synchronizer都是委托了AQS的私有内部子类，防止调用者误用AQS的公共方法。
+
+### java.util.concurrent的Synchronizer类中的AQS
+
+#### ReentrantLock
+
+只支持独占的获取操作。实现了tryAcquire、tryRelease、isHeldExclusively。主要维护了一个owner变量来标识当前拥有的线程标识符。在tryRelease的时候，会去检查owner
+是否当前线程在释放锁的时候确实拥有该锁。在tryAcquire中，使用owner来区分是重进入的获取操作还是竞争的获取操作尝试。
+
+<img src="./images/1672926864187.jpg" />
+
+#### Semaphore 和 CountDownLatch
+
+##### Semaphore
+
+tryAcquireShared 首先计算剩余许可的数量，如果没有足够许可就失败，如果有充足的许可剩余，就原子地递减许可计数。同时返回是否能够被其他共享，如果可以那么其他等待地线程就解除阻塞。
+
+在原子操作compareAndSetState()操作地时候，可能会和其他线程竞争而阻塞，但是总会在多次重试之后，轮到该线程成功执行，这时候检查状态就会结束循环。和 tryReleaseShared 
+递增许可技术一致，同时会潜在解除等待中的线程阻塞
+
+<img src="./images/1672926939612.jpg"/>
+
+##### CountDownLatch 
+
+与 Semaphore类似，countDown调用release，导致计数器递减，到0就释放所有的阻塞线程；await调用acquire，如果计数器0，就acquire立即返回，否则阻塞。
+
+#### FutureTask
+
+get方法类似于闭锁，维护一个指向计算任务的线程，如果任务取消，就中断线程。
+
+#### ReentrantReadWriteLock
+
+ReadWriteLock的两个实现——读者锁、写者锁。使用了16位的状态为写锁计数、另一个16位的状态为读锁计数。共享读锁，独占写锁。
+
 ## 附录
 
 ### 锁类型
@@ -1463,7 +1535,6 @@ AQS 解决了实现一个Synchronizer的大量细节，比如等待线程的FIFO
 
 3. 私有锁：在类内部声明一个私有属性如private Object lock，在需要加锁的代码段synchronized(
    lock），如下文中的synMethodWithObj()。
-
 
 ### 并发规则
 
@@ -1476,6 +1547,7 @@ AQS 解决了实现一个Synchronizer的大量细节，比如等待线程的FIFO
 - 文档化同步策略
 
 ## 异常
+
 - 受检异常：需要显式抛出或者捕捉的异常，非程序员的问题而引出的异常
 - 非受检异常：不需要显式抛出或者捕捉的异常，是程序员编码出现了逻辑错误而引出的异常。
 
