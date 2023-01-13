@@ -1719,11 +1719,35 @@ Java存储模型明确规定了什么时机下，操作存储器的线程的动�
 - 同一不变约束中所涉及的变量使用相同锁
 - 文档化同步策略
 
-## 异常
+### 异常
 
 - 受检异常：需要显式抛出或者捕捉的异常，非程序员的问题而引出的异常
 - 非受检异常：不需要显式抛出或者捕捉的异常，是程序员编码出现了逻辑错误而引出的异常。
 
-## Little定律
+### Little定律
 
 稳定的系统中，顾客的平均数量等于他们的平局到达率*他们在系统中的平均停留时间。
+
+### 同步Annotation
+
+#### 类Annotation
+
+描述可预期的类安全性：
+- `@Immutable` 不可变且ThreadSafe
+- `@ThreadSafe` 明确线程安全
+- `@NotThreadSafe` 明确线程不安全 
+
+可以帮助静态代码分析工具进行检查，是否真的符合 Annotation
+
+#### 域Annotation 和 方法Annotation
+
+加锁的类应该写入文档的信息：哪个状态变量被哪个锁守护，以及哪个锁用来保护这些变量信息。
+
+@GuardedBy(lock) 记录的是：线程只有持有一个特定的锁后，才能访问某个域或者方法。lock可能值如下：
+- @GuardedBy("this"):对象中的内部锁
+- @GuardedBy("fieldName"):与fieldName引用的对象相关联的锁，可能是显式锁、隐式锁
+- @GuardedBy("ClassName.fieldName"):与@GuardedBy("fieldName")类似，指的是静态域
+- @GuardedBy("methodName()"):锁对象指的是方法的返回值
+- @GuardedBy("ClassName.class"):是指ClassName类的直接类对象
+
+能够帮助自动化分析工具进行代码检查。
